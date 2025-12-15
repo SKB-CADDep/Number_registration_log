@@ -15,7 +15,16 @@ import { useTheme } from 'vuetify'
 const theme = useTheme()
 
 function toggleTheme() {
-  theme.global.name.value =
-    theme.global.name.value === 'utzDarkTheme' ? 'utzLightTheme' : 'utzDarkTheme'
+  const current = theme.global.name.value
+  const next = current === 'utzDarkTheme' ? 'utzLightTheme' : 'utzDarkTheme'
+
+  // 1. Применяем тему
+  theme.global.name.value = next
+
+  // 2. Сохраняем в LocalStorage
+  localStorage.setItem('utz-theme', next)
+  
+  // Для проверки можно оставить лог, потом уберешь
+  console.log('Theme saved:', next) 
 }
 </script>
