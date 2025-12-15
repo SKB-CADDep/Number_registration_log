@@ -1,23 +1,16 @@
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import type { SearchParams, ReportResponse, ReportItem } from '@/types/api'
 import apiClient from '@/api'
 
+// --- API Функции ---
+
 const fetchReport = async (params: SearchParams): Promise<ReportResponse> => {
-  // Убираем пустые значения
   const filteredParams = Object.fromEntries(
     Object.entries(params).filter(([, v]) => v != null && v !== ''),
   )
-
   const { data } = await apiClient.get<ReportItem[]>('/reports', { params: filteredParams })
-
   return { items: data, totalItems: data.length }
-}
-
-interface TableOptions {
-  page: number
-  itemsPerPage: number
-  sortBy: { key: string; order: 'asc' | 'desc' }[]
 }
 
 const fetchAllReportItemsForExport = async (
@@ -30,6 +23,20 @@ const fetchAllReportItemsForExport = async (
   return data
 }
 
+// Добавляем отсутствующую функцию
+const fetchDepartments = async (): Promise<string[]> => {
+  const { data } = await apiClient.get<string[]>('/reports/departments')
+  return data
+}
+
+interface TableOptions {
+  page: number
+  itemsPerPage: number
+  sortBy: { key: string; order: 'asc' | 'desc' }[]
+}
+
+// --- Composable ---
+
 export function useReports(initialFilters: Partial<SearchParams> = {}) {
   const tableOptions = ref<TableOptions>({
     page: 1,
@@ -37,9 +44,11 @@ export function useReports(initialFilters: Partial<SearchParams> = {}) {
     sortBy: [{ key: 'reg_date', order: 'desc' }],
   })
 
-  const createDefaultFilters = () => ({
+  // Инициализация фильтров
+  const createDefaultFilters = (): Omit<SearchParams, 'page' | 'itemsPerPage' | 'sortBy'> => ({
     session_id: undefined,
     username: undefined,
+    department: undefined, // Исправлено: undefined вместо null, чтобы совпадало с типом SearchParams
     station_object: '',
     factory_no: '',
     station_no: '',
@@ -52,18 +61,20 @@ export function useReports(initialFilters: Partial<SearchParams> = {}) {
     q: '',
   })
 
+  // Состояние для списка отделов
+  const departments = ref<string[]>([])
+  const isLoadingDepartments = ref(false)
+
   // Реактивный объект фильтров
   const filters = reactive<Omit<SearchParams, 'page' | 'itemsPerPage' | 'sortBy'>>({
     ...createDefaultFilters(),
     ...initialFilters,
   })
 
-  // Пагинация и сортировка происходят на клиенте.
   const apiQueryParams = computed<SearchParams>(() => ({
     ...filters,
   }))
 
-  // TanStack Query
   const { data, isLoading, isError, error } = useQuery<ReportResponse>({
     queryKey: ['reports', apiQueryParams],
     queryFn: () => fetchReport(apiQueryParams.value),
@@ -71,7 +82,6 @@ export function useReports(initialFilters: Partial<SearchParams> = {}) {
     placeholderData: (previousData) => previousData,
   })
 
-  // Если фильтры изменились -> на первую страницу
   watch(
     () => JSON.stringify(filters),
     (newVal, oldVal) => {
@@ -82,12 +92,28 @@ export function useReports(initialFilters: Partial<SearchParams> = {}) {
   )
 
   const resetFilters = () => {
-    Object.assign(filters, createDefaultFilters(), initialFilters)
+    // Сбрасываем значения, сохраняя реактивность
+    const defaults = createDefaultFilters()
+    Object.assign(filters, defaults, initialFilters)
     tableOptions.value.page = 1
   }
 
+  // Загружаем отделы при инициализации
+  onMounted(async () => {
+    try {
+      isLoadingDepartments.value = true
+      departments.value = await fetchDepartments()
+    } catch (e) {
+      console.error('Failed to load departments', e)
+    } finally {
+      isLoadingDepartments.value = false
+    }
+  })
+
   return {
     report: data,
+    departments,
+    isLoadingDepartments, // Важно: возвращаем это состояние для UI
     isLoading,
     isError,
     error,

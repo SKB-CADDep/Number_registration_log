@@ -9,7 +9,13 @@
       </v-col>
     </v-row>
 
-    <search-filters v-model="filters" @reset="resetFilters" />
+    <!-- Передаем departments и статус загрузки -->
+    <search-filters 
+      v-model="filters"
+      :departments="departments"
+      :loading-departments="isLoadingDepartments"
+      @reset="resetFilters" 
+    />
 
     <v-card flat class="border">
       <v-card-title class="d-flex align-center">
@@ -39,7 +45,6 @@
         hover
         density="compact"
       >
-        <!-- Шаблоны для форматирования остаются те же -->
         <template #no-data>
           <div class="text-center pa-6">
             <v-icon
@@ -81,6 +86,8 @@ const initialFilters: Partial<SearchParams> = authStore.user
 
 const {
   report,
+  departments,
+  isLoadingDepartments, // Получаем статус загрузки отделов
   isLoading,
   tableOptions,
   filters,
@@ -94,6 +101,7 @@ const headers = [
   { title: 'Дата регистрации', key: 'reg_date', sortable: true },
   { title: 'Наименование', key: 'doc_name', sortable: false },
   { title: 'Примечание', key: 'note', sortable: false },
+  { title: 'Отдел', key: 'department', sortable: true },
   { title: 'Пользователь', key: 'username', sortable: true },
   { title: '№ заказа', key: 'order_no', sortable: false },
   { title: 'Станция/Объект', key: 'station_object', sortable: false },
@@ -117,6 +125,7 @@ async function exportToExcel() {
       'Дата регистрации': item.reg_date,
       'Наименование документа': item.doc_name,
       'Примечание': item.note,
+      'Отдел': item.department || '', // Добавили отдел в Excel
       'Пользователь': item.username,
       '№ заказа': item.order_no,
       'Станция/Объект': item.station_object,

@@ -39,6 +39,18 @@ def clean_param(p: str | None) -> str | None:
     return stripped if stripped else None
 
 
+# --- НОВЫЙ ЭНДПОИНТ (Должен быть здесь) ---
+@router.get("/departments", response_model=List[str])
+async def get_departments_list(
+    session: AsyncSession = Depends(lifespan_session),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Список всех отделов для фильтрации."""
+    svc = ReportsService(session)
+    return await svc.get_departments()
+# ------------------------------------------
+
+
 @router.get("", response_model=list[ReportRowOut])
 async def get_report(
         station_object: list[str] | None = Query(default=None),
@@ -50,6 +62,7 @@ async def get_report(
         date_to: str | None = Query(default=None),
         doc_name: str | None = Query(default=None),
         username: str | None = Query(default=None),
+        department: str | None = Query(default=None), # <--- Параметр фильтрации
         session: AsyncSession = Depends(lifespan_session),
         user: CurrentUser = Depends(get_current_user),
 ):
@@ -68,7 +81,8 @@ async def get_report(
         date_from=df,
         date_to=dt,
         doc_name=clean_param(doc_name),
-        username=clean_param(username)
+        username=clean_param(username),
+        department=clean_param(department) # <--- Передача в сервис
     )
     return rows
 
@@ -84,6 +98,7 @@ async def export_report_excel(
         date_to: str | None = Query(default=None),
         doc_name: str | None = Query(default=None),
         username: str | None = Query(default=None),
+        department: str | None = Query(default=None), # <--- Параметр фильтрации
         session: AsyncSession = Depends(lifespan_session),
         user: CurrentUser = Depends(get_current_user),
 ):
@@ -102,7 +117,8 @@ async def export_report_excel(
         date_from=df,
         date_to=dt,
         doc_name=clean_param(doc_name),
-        username=clean_param(username)
+        username=clean_param(username),
+        department=clean_param(department) # <--- Передача в сервис
     )
 
     return FileResponse(

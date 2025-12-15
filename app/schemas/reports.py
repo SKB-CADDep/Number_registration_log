@@ -42,5 +42,6 @@ class ReportRowOut(BaseModel):
     station_no: str | None
     station_object: str | None
     username: str
+    department: str | None
 
     model_config = ConfigDict(from_attributes=True)

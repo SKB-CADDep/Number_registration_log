@@ -14,6 +14,9 @@ class ReportsService:
         self.session = session
         self.repo = ReportsRepository(session)
 
+    async def get_departments(self) -> list[str]:
+        return await self.repo.get_all_departments()
+
     async def get_rows(self, station_objects: list[str] | None, date_from, date_to):
         rows = await self.repo.fetch(station_objects, date_from, date_to)
         payload = []
@@ -67,18 +70,19 @@ class ReportsService:
             date_to,
             doc_name: str | None = None,
             username: str | None = None,
+            department: str | None = None, # <--- Аргумент
     ):
         """Расширенный поиск с дополнительными фильтрами"""
         rows = await self.repo.fetch_extended(
-            station_objects, station_no, label, factory_no, order_no, date_from, date_to, doc_name=doc_name,
-            username=username
+            station_objects, station_no, label, factory_no, order_no, date_from, date_to, 
+            doc_name=doc_name, username=username, department=department # <--- Передача
         )
         payload = []
         for (
                 numeric, reg_date, doc_name, note,
                 eq_type, factory_no, order_no,
                 label, station_no, station_object,
-                username,
+                username, dept_val # <--- Получаем department из БД
         ) in rows:
             payload.append(
                 {
@@ -94,6 +98,7 @@ class ReportsService:
                     "station_no": station_no,
                     "station_object": station_object,
                     "username": username,
+                    "department": dept_val, # <--- В результат
                 }
             )
         return payload
@@ -106,10 +111,11 @@ class ReportsService:
 
     async def export_excel_extended(self, station_objects: list[str] | None, station_no: str | None, label: str | None,
                                     factory_no: str | None, order_no: str | None, date_from, date_to,
-                                    doc_name: str | None = None, username: str | None = None) -> str:
+                                    doc_name: str | None = None, username: str | None = None,
+                                    department: str | None = None) -> str:
         """Экспорт в Excel с расширенными фильтрами"""
         data = await self.get_rows_extended(station_objects, station_no, label, factory_no, order_no, date_from,
-                                            date_to, doc_name=doc_name, username=username)
+                                            date_to, doc_name=doc_name, username=username, department=department)
         builder = ReportExcelBuilder()
         path = builder.build_report_extended(data)
         return path

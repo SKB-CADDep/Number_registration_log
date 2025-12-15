@@ -91,6 +91,7 @@ export interface ReportItem {
   station_no: string | null
   station_object: string | null
   username: string
+  department : string | null
 }
 
 // Ответ от API с отчетом
@@ -127,6 +128,7 @@ export interface SearchParams {
   factory_no?: string
   order_no?: string
   username?: string
+  department?: string
   session_id?: string
   doc_name?: string
   date_from?: string
