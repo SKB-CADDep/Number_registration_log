@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
@@ -49,13 +49,13 @@ class ReportsRepository:
 
     async def fetch_extended(self, station_objects: list[str] | None, station_no: str | None, label: str | None,
                              factory_no: str | None, order_no: str | None, date_from, date_to, doc_name: str | None,
-                             username: str | None):
+                             username: str | None, department: str | None):
         stmt = (
             select(
                 Document.numeric, Document.reg_date, Document.doc_name, Document.note,
                 Equipment.eq_type, Equipment.factory_no, Equipment.order_no,
                 Equipment.label, Equipment.station_no, Equipment.station_object,
-                User.username,
+                User.username, User.department,
             )
             .join(Equipment, Equipment.id == Document.equipment_id)
             .join(User, User.id == Document.user_id)
@@ -66,7 +66,10 @@ class ReportsRepository:
             where.append(or_(*station_object_conditions))
         if label: where.append(Equipment.label.ilike(f"%{label}%"))
         if doc_name: where.append(Document.doc_name.ilike(f"%{doc_name}%"))
+        
+        # Фильтры
         if username: where.append(User.username.ilike(f"%{username}%"))
+        if department: where.append(User.department == department)
 
         if station_no: where.append(Equipment.station_no == station_no)
         if factory_no: where.append(Equipment.factory_no == factory_no)
@@ -119,3 +122,9 @@ class ReportsRepository:
 
         res = await self.session.execute(stmt)
         return res.fetchall()
+
+    async def get_all_departments(self) -> list[str]:
+        """Получить список всех уникальных отделов."""
+        stmt = select(User.department).where(User.department.is_not(None)).distinct().order_by(User.department)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
