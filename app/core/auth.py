@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.db import lifespan_session
 from app.services.users import UsersService
 
-# Указываем URL логина (для Swagger UI)
+# Указываем URL логина
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8001/auth/login")
 
 
@@ -18,6 +18,7 @@ class CurrentUser(BaseModel):
     id: int
     username: str
     is_admin: bool
+    is_active: bool
 
 
 async def get_current_user(
@@ -25,7 +26,7 @@ async def get_current_user(
         session: AsyncSession = Depends(lifespan_session),
 ) -> CurrentUser:
     """
-    Проверяет JWT токен, извлекает username и находит пользователя в БД.
+    Проверяет JWT токен и права пользователя через БД.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -44,9 +45,18 @@ async def get_current_user(
     svc = UsersService(session)
     user = await svc.get_or_create_by_username(username)
 
-    is_admin = user.username.lower() in [u.lower() for u in settings.admin_users]
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive",
+        )
 
-    return CurrentUser(id=user.id, username=user.username, is_admin=is_admin)
+    return CurrentUser(
+        id=user.id, 
+        username=user.username, 
+        is_admin=user.is_admin,
+        is_active=user.is_active
+    )
 
 
 async def get_current_admin_user(

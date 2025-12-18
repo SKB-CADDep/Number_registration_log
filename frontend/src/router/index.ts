@@ -45,21 +45,16 @@ const router = createRouter({
                 const wizardStore = useWizardStore()
                 const equipmentIdFromUrl = Number(to.params.equipmentId)
 
-                // Разрешаем вход, если ID оборудования уже есть в сторе
                 if (wizardStore.selectedEquipmentId === equipmentIdFromUrl) {
                   return true
                 }
 
-                // Разрешаем вход, если мы пришли не из визарда (прямая ссылка)
-                // и пытаемся восстановить состояние
                 if (!from.path.startsWith('/wizard')) {
                   console.log('Direct navigation to Step 2, restoring state from URL...')
                   wizardStore.setEquipment(equipmentIdFromUrl)
                   return true
                 }
 
-                // Во всех остальных случаях (например, переход с шага 1 без выбора)
-                // возвращаем на первый шаг.
                 console.warn('Blocked navigation to Step 2: no equipment selected.')
                 return { name: 'wizard-equipment' }
               },
@@ -79,8 +74,6 @@ const router = createRouter({
                 }
 
                 if (!from.path.startsWith('/wizard')) {
-                  // При прямой навигации на этот шаг сложно восстановить состояние (нет номеров)
-                  // Поэтому просто перенаправляем на начало
                   console.warn(
                     'Direct navigation to Step 3 is not fully supported, redirecting to Step 1.',
                   )
@@ -89,7 +82,6 @@ const router = createRouter({
                 }
 
                 console.warn('Blocked navigation to Step 3: no active session.')
-                // Если нет сессии, возвращаем на предыдущий шаг, сохранив ID оборудования
                 if (wizardStore.selectedEquipmentId) {
                   return {
                     name: 'wizard-reserve',

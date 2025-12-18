@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., alias="SECRET_KEY")
     ALGORITHM: str = "HS256"
 
-    # Список администраторов системы
-    admin_users: List[str] = ["vgrubtsov", "yuaalekseeva", "lrshlyogin", "pyagavrilov", "mabaturin"]
+    # Список администраторов удален, так как используется RBAC в БД
+    # admin_users: List[str] = [...] 
 
     PROJECT_NAME: str = "Журнал регистрации УТЗ"
     BACKEND_CORS_ORIGINS: List[str] = []

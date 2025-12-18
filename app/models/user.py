@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy import Boolean
 
 from app.models.base import Base, TimestampMixin
 
@@ -15,3 +16,5 @@ class User(Base, TimestampMixin):
     first_name: Mapped[str | None] = mapped_column(nullable=True)
     middle_name: Mapped[str | None] = mapped_column(nullable=True)
     department: Mapped[str | None] = mapped_column(nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
