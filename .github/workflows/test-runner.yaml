@@ -1,0 +1,14 @@
+name: Test My Self-Hosted Runner
+
+on:
+  push:
+    branches: [test-github-actions]
+  workflow_dispatch:
+
+jobs:
+  test-runner:
+    name: "Test My Runner"
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+    - name: "Greeting"
+      run: echo "Hello Github Actions!"
