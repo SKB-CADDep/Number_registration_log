@@ -16,6 +16,3 @@ jobs:
 
     - name: Check access to the server
       run: ping -c 5 10.202.220.142
-
-    - name: Check access to the non-existent server
-      run: ping -c 5 10.202.220.140
