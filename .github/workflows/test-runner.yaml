@@ -15,4 +15,4 @@ jobs:
       run: echo "Hello Github Actions!"
 
     - name: Check access to the server
-      run: ping -c 5 10.202.220.142
+      run: for n in {141..144}; do ping -c 5 10.202.220.$n; done
