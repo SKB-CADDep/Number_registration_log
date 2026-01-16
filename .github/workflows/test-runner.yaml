@@ -14,8 +14,5 @@ jobs:
     - name: "Greeting"
       run: echo "Hello Github Actions!"
 
-    - name: Delay test
-      run: sleep 10
-
     - name: Check access to the server
       run: ping -c 5 10.202.220.142
