@@ -1,3 +1,16 @@
+"""
+Модуль бизнес-логики работы с документами.
+
+Отвечает за назначение регистрационных номеров документам в рамках сессии
+резервирования, а также за административное редактирование документов и
+связанного с ними оборудования.
+
+Содержит сложные бизнес-правила:
+- защиту «золотых» номеров от обычных пользователей,
+- валидацию активной сессии,
+- аудит всех административных изменений.
+"""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,12 +22,22 @@ from app.repositories.sessions import SessionsRepository
 from app.repositories.audit import AuditRepository
 from app.repositories.equipment import EquipmentRepository
 from app.repositories.users import UsersRepository
-from app.utils.numbering import format_doc_no, is_golden
 from app.schemas.admin import AdminDocumentUpdate
+from app.utils.numbering import format_doc_no, is_golden
 
 
 class DocumentsService:
-    def __init__(self, session: AsyncSession):
+    """
+    Сервис для работы с документами и назначением регистрационных номеров.
+
+    Координирует работу нескольких репозиториев для выполнения атомарных
+    бизнес-операций. Основные сценарии использования:
+    - Назначение номера документу в рамках сессии резервирования (`assign_one`)
+    - Административное редактирование документа и оборудования (`edit_document_admin`)
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        """Инициализация сервиса со всеми необходимыми репозиториями."""
         self.session = session
         self.numbers_repo = DocNumbersRepository(session)
         self.docs_repo = DocumentsRepository(session)
@@ -23,8 +46,44 @@ class DocumentsService:
         self.equipment_repo = EquipmentRepository(session)
         self.users_repo = UsersRepository(session)
 
-    async def assign_one(self, *, session_id: str, user_id: int, doc_name: str, note: str | None, is_admin: bool,
-                         numeric: int) -> dict:
+    async def assign_one(
+        self,
+        *,
+        session_id: str,
+        user_id: int,
+        doc_name: str,
+        note: str | None,
+        is_admin: bool,
+        numeric: int,
+    ) -> dict:
+        """
+        Назначает указанный номер документу в рамках активной сессии резервирования.
+
+        Выполняет комплексную проверку бизнес-правил:
+        - Существует ли сессия и есть ли в ней зарезервированные номера.
+        - Принадлежит ли запрошенный номер текущей сессии.
+        - Запрещает обычным пользователям назначать «золотые» номера (кратные 100).
+        - При успешном назначении создаёт документ, помечает номер как `assigned`,
+          фиксирует изменения и коммитит транзакцию.
+
+        Метод содержит подробные отладочные print-выводы (для анализа сложных случаев).
+        В продакшене рекомендуется заменить их на структурированное логирование.
+
+        Args:
+            session_id: UUID сессии резервирования.
+            user_id: ID пользователя, создающего документ.
+            doc_name: Название документа.
+            note: Примечание к документу (опционально).
+            is_admin: Флаг, указывающий, является ли пользователь администратором.
+            numeric: Регистрационный номер, который пользователь хочет назначить.
+
+        Returns:
+            dict: В случае успеха содержит ключ `"created"` с данными документа
+                  и `"message"`. В случае ошибки возвращает `{"created": None, "message": "..."}`.
+
+        Raises:
+            ValueError: При попытке создать дубликат документа (IntegrityError).
+        """
         print("\n" + "=" * 50)
         print(f"-> assign_one_service: Начало назначения для сессии {session_id}")
         print(f"   - Пользователь ID: {user_id}, Админ: {is_admin}")
@@ -97,10 +156,27 @@ class DocumentsService:
             await self.session.rollback()
             raise ValueError("Такой документ уже зарегистрирован для данного объекта.")
 
-    async def edit_document_admin(self, *, document_id: int, username: str, data: AdminDocumentUpdate) -> dict:
+    async def edit_document_admin(
+        self, *, document_id: int, username: str, data: AdminDocumentUpdate
+    ) -> dict:
         """
-        Обновляет данные документа и связанного с ним оборудования,
-        сохраняя аудит всех изменений.
+        Обновляет метаданные документа и/или связанного оборудования администратором.
+
+        Все изменения фиксируются в таблице аудита (`audit_log`). Метод сравнивает
+        старые и новые значения и сохраняет только реально изменённые поля.
+
+        Args:
+            document_id: Идентификатор документа, который нужно отредактировать.
+            username: Логин администратора, выполняющего изменения (для аудита).
+            data: Pydantic-модель с новыми значениями (все поля опциональны).
+
+        Returns:
+            dict: Сообщение об успехе и словарь изменений (`diff`), если они были.
+                  Если изменений нет — возвращает `{"message": "Изменений нет."}`.
+
+        Raises:
+            ValueError: Если документ или связанное оборудование не найдены,
+                        либо при нарушении уникальности (IntegrityError).
         """
         doc = await self.docs_repo.get(document_id)
         if not doc:
@@ -157,7 +233,12 @@ class DocumentsService:
             await self.session.rollback()
             raise ValueError("Такой документ уже зарегистрирован (конфликт уникальности).")
 
-        await self.audit_repo.add(document_id=doc.id, doc_number=doc.numeric, username=username, diff=changed)
+        await self.audit_repo.add(
+            document_id=doc.id,
+            doc_number=doc.numeric,
+            username=username,
+            diff=changed,
+        )
         await self.session.commit()
 
         return {"message": "Изменения сохранены.", "diff": changed}
